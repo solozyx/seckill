@@ -4,8 +4,7 @@
 package conf
 
 const (
-	DriverName   = "mysql"
-	TableProduct = "product"
+	DriverName = "mysql"
 )
 
 type DbConfig struct {
@@ -17,7 +16,7 @@ type DbConfig struct {
 	IsRunning bool // 是否正常运行
 }
 
-// 系统中所有mysql主库 root:root@tcp(127.0.0.1:3306)/lottery?charset=utf8
+// 系统中所有mysql主库 root:root@tcp(127.0.0.1:3306)/seckill?charset=utf8
 var DbMasterList = []DbConfig{
 	{
 		Host:      "127.0.0.1",
