@@ -80,6 +80,14 @@ func (c *UserController) PostLogin() mvc.Response {
 	// 设置服务端session 一般的web登录会使用服务端session
 	c.Session.Set("userId", strconv.FormatInt(user.ID, 10))
 
+	//uidByte := []byte(strconv.FormatInt(user.ID, 10))
+	//uidString, err := encrypt.EnPwdCode(uidByte)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//// 写入用户浏览器
+	//comm.GlobalCookie(c.Ctx, "sign", uidString)
+
 	return mvc.Response{
 		// 跳转秒杀页面
 		Path: "/product/",

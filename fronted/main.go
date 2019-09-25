@@ -66,12 +66,17 @@ func main() {
 	// 注册 product 控制器
 	productDao := dao.NewProductManager(db)
 	productService := service.NewProductService(productDao)
+	orderDao := dao.NewOrderManager(db)
+	orderService := service.NewOrderService(orderDao)
 	productParty := app.Party("/product")
 	// 秒杀用户登录验证中间件
 	productParty.Use(middleware.AuthUserLogin)
 	product := mvc.New(productParty)
 	// 注册service和session
-	product.Register(productService, ctx, session.Start)
+	product.Register(productService, orderService, ctx, session.Start)
+	// 消息队列
+	// mq := rabbitmq.NewRabbitMQSimple("seckillProduct")
+	// product.Register(productService, orderService,mq)
 	product.Handle(new(controllers.ProductController))
 
 	app.Run(

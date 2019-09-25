@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"github.com/kataras/iris/mvc"
 	"github.com/kataras/iris/sessions"
 
+	"github.com/solozyx/seckill/conf"
 	"github.com/solozyx/seckill/model"
 	"github.com/solozyx/seckill/service"
 )
@@ -20,6 +20,7 @@ type ProductController struct {
 	// TODO:NOTICE 使用session是临时的,后续会把session优化掉,在高并发场景,session数据维护消耗大
 	Session        *sessions.Session
 	ProductService service.IProductService
+	OrderService   service.IOrderService
 }
 
 var (
@@ -97,65 +98,70 @@ func exist(fileName string) bool {
 	return err == nil || os.IsExist(err)
 }
 
-func (p *ProductController) GetOrder() []byte {
+// 基于MySQL的秒杀抢购流程
+func (p *ProductController) GetOrder() mvc.View {
+	// func (p *ProductController) GetOrder() []byte {
 	productString := p.Ctx.URLParam("productID")
-	userString := p.Ctx.GetCookie("uid")
+	userString := p.Ctx.GetCookie(conf.CookieName)
 	productID, err := strconv.ParseInt(productString, 10, 64)
 	if err != nil {
 		p.Ctx.Application().Logger().Debug(err)
 	}
-	userID, err := strconv.ParseInt(userString, 10, 64)
+	// TODO:WARNING 直接查询MySQL数据库获取秒杀商品信息 性能低下
+	product, err := p.ProductService.GetProductById(productID)
 	if err != nil {
 		p.Ctx.Application().Logger().Debug(err)
 	}
-
-	//创建消息体
-	message := model.NewMessage(userID, productID)
-	//类型转化
-	byteMessage, err := json.Marshal(message)
-	if err != nil {
-		p.Ctx.Application().Logger().Debug(err)
+	var orderID int64
+	showMessage := "抢购失败！"
+	// 判断商品数量是否满足需求
+	if product.ProductNum > 0 {
+		// 扣除商品数量
+		product.ProductNum -= 1
+		// TODO:ERROR 直接更新MySQL数据库获取秒杀商品信息 性能低下 在高并发场景会超卖错误
+		err := p.ProductService.UpdateProduct(product)
+		if err != nil {
+			p.Ctx.Application().Logger().Debug(err)
+		}
+		// 创建订单
+		userID, err := strconv.Atoi(userString)
+		if err != nil {
+			p.Ctx.Application().Logger().Debug(err)
+		}
+		order := &model.Order{
+			UserId:      int64(userID),
+			ProductId:   productID,
+			OrderStatus: model.OrderSuccess,
+		}
+		// TODO:WARNING 新建订单 直接更新MySQL数据库获取秒杀商品信息 性能低下
+		orderID, err = p.OrderService.InsertOrder(order)
+		if err != nil {
+			p.Ctx.Application().Logger().Debug(err)
+		} else {
+			showMessage = "抢购成功！"
+		}
 	}
-
-	err = p.RabbitMQ.PublishSimple(string(byteMessage))
-	if err != nil {
-		p.Ctx.Application().Logger().Debug(err)
+	return mvc.View{
+		Layout: "shared/product_layout.html",
+		Name:   "product/result.html",
+		Data: iris.Map{
+			"orderID":     orderID,
+			"showMessage": showMessage,
+		},
 	}
-
-	return []byte("true")
-
-	//product, err := p.ProductService.GetProductByID(int64(productID))
-	//if err != nil {
-	//	p.Ctx.Application().Logger().Debug(err)
-	//}
-	//var orderID int64
-	//showMessage := "抢购失败！"
-	////判断商品数量是否满足需求
-	//if product.ProductNum > 0 {
-	//	//扣除商品数量
-	//	product.ProductNum -= 1
-	//	err := p.ProductService.UpdateProduct(product)
-	//	if err != nil {
-	//		p.Ctx.Application().Logger().Debug(err)
-	//	}
-	//	//创建订单
-	//	userID, err := strconv.Atoi(userString)
-	//	if err != nil {
-	//		p.Ctx.Application().Logger().Debug(err)
-	//	}
-	//
-	//	order := &datamodels.Order{
-	//		UserId:      int64(userID),
-	//		ProductId:   int64(productID),
-	//		OrderStatus: datamodels.OrderSuccess,
-	//	}
-	//	//新建订单
-	//	orderID, err = p.OrderService.InsertOrder(order)
-	//	if err != nil {
-	//		p.Ctx.Application().Logger().Debug(err)
-	//	} else {
-	//		showMessage = "抢购成功！"
-	//	}
-	//}
-
 }
+
+////创建消息体
+//message := model.NewMessage(userID, productID)
+////类型转化
+//byteMessage, err := json.Marshal(message)
+//if err != nil {
+//	p.Ctx.Application().Logger().Debug(err)
+//}
+//
+//err = p.RabbitMQ.PublishSimple(string(byteMessage))
+//if err != nil {
+//	p.Ctx.Application().Logger().Debug(err)
+//}
+//
+//return []byte("true")
