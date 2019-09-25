@@ -1,13 +1,14 @@
 package controllers
 
 import (
-	"github.com/solozyx/seckill/comm"
 	"strconv"
 
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/mvc"
 	"github.com/kataras/iris/sessions"
 
+	"github.com/solozyx/seckill/comm"
+	"github.com/solozyx/seckill/conf"
 	"github.com/solozyx/seckill/model"
 	"github.com/solozyx/seckill/service"
 )
@@ -75,7 +76,7 @@ func (c *UserController) PostLogin() mvc.Response {
 	}
 
 	// 写入用户ID到cookie中
-	comm.GlobalCookie(c.Ctx, "uid", strconv.FormatInt(user.ID, 10))
+	comm.GlobalCookie(c.Ctx, conf.CookieName, strconv.FormatInt(user.ID, 10))
 	// 设置服务端session 一般的web登录会使用服务端session
 	c.Session.Set("userId", strconv.FormatInt(user.ID, 10))
 
