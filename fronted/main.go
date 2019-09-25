@@ -15,6 +15,11 @@ import (
 	"github.com/solozyx/seckill/service"
 )
 
+var (
+	// 生成静态资源 html 文件保存目录
+	htmlOutPath = "./fronted/web/static_product/"
+)
+
 func main() {
 	// 1.创建iris 实例
 	app := iris.New()
@@ -28,8 +33,9 @@ func main() {
 	// 4.设置模板
 	app.StaticWeb("/public", "./fronted/web/public")
 
-	// 访问生成好的html静态文件
-	// app.StaticWeb("/html", "./fronted/web/htmlProductShow")
+	// 前端优化 : 页面静态化
+	// 访问生成的秒杀详情页 html 静态文件
+	app.StaticWeb("/html", htmlOutPath)
 
 	// 出现异常跳转到指定页面
 	app.OnAnyErrorCode(func(ctx iris.Context) {
@@ -74,9 +80,7 @@ func main() {
 	product := mvc.New(productParty)
 	// 注册service和session
 	product.Register(productService, orderService, ctx, session.Start)
-	// 消息队列
-	// mq := rabbitmq.NewRabbitMQSimple("seckillProduct")
-	// product.Register(productService, orderService,mq)
+
 	product.Handle(new(controllers.ProductController))
 
 	app.Run(
