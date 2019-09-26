@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/kataras/iris"
@@ -65,6 +66,38 @@ func (c *UserController) PostLogin() mvc.Response {
 		userName = c.Ctx.FormValue("UserName")
 		password = c.Ctx.FormValue("Password")
 	)
+	// TODO:NOTICE 从数据库查询用户信息,不在并发考虑范围内,用户可以事先登录.登录后才能参与秒杀
+	user, isOk := c.Service.IsPwdSuccess(userName, password)
+	if !isOk {
+		return mvc.Response{
+			Path: "/user/login",
+		}
+	}
+
+	uidByte := []byte(strconv.FormatInt(user.ID, 10))
+	uidCiphertext, err := comm.AesEncryptBase64Encode(uidByte)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// 写入Cookie到用户浏览器
+	comm.SetGlobalCookie(c.Ctx, conf.CookieName, strconv.FormatInt(user.ID, 10))
+	comm.SetGlobalCookie(c.Ctx, conf.CookieSign, uidCiphertext)
+	// TODO:NOTICE 优化掉服务端session
+	// c.Session.Set("userId", strconv.FormatInt(user.ID, 10))
+
+	return mvc.Response{
+		// 跳转秒杀页面
+		Path: "/product/",
+	}
+}
+
+// 弃用该登录方法,用户登录状态维护弃用session机制
+// POST domain_name/login
+func (c *UserController) deprecatedPostLogin() mvc.Response {
+	var (
+		userName = c.Ctx.FormValue("UserName")
+		password = c.Ctx.FormValue("Password")
+	)
 	// 验证账号密码是否正确
 	user, isOk := c.Service.IsPwdSuccess(userName, password)
 	if !isOk {
@@ -76,17 +109,9 @@ func (c *UserController) PostLogin() mvc.Response {
 	}
 
 	// 写入用户ID到cookie中
-	comm.GlobalCookie(c.Ctx, conf.CookieName, strconv.FormatInt(user.ID, 10))
+	comm.SetGlobalCookie(c.Ctx, conf.CookieName, strconv.FormatInt(user.ID, 10))
 	// 设置服务端session 一般的web登录会使用服务端session
 	c.Session.Set("userId", strconv.FormatInt(user.ID, 10))
-
-	//uidByte := []byte(strconv.FormatInt(user.ID, 10))
-	//uidString, err := encrypt.EnPwdCode(uidByte)
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-	//// 写入用户浏览器
-	//comm.GlobalCookie(c.Ctx, "sign", uidString)
 
 	return mvc.Response{
 		// 跳转秒杀页面

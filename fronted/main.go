@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/mvc"
-	"github.com/kataras/iris/sessions"
+	// "github.com/kataras/iris/sessions"
 
 	"github.com/solozyx/seckill/dao"
 	"github.com/solozyx/seckill/datasource"
@@ -53,20 +52,21 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// session
-	session := sessions.New(sessions.Config{
-		// cookie名称
-		Cookie: "seckill",
-		// 过期时间
-		Expires: 60 * time.Minute,
-	})
+	// TODO:NOTICE 优化掉服务端session
+	// session := sessions.New(sessions.Config{
+	//	// cookie名称
+	//	Cookie: "seckill",
+	//	// 过期时间
+	//	Expires: 60 * time.Minute,
+	//})
 
 	// 注册 user 控制器
 	userDao := dao.NewUserManager(db)
 	userService := service.NewUserService(userDao)
 	userParty := app.Party("/user")
 	user := mvc.New(userParty)
-	user.Register(userService, ctx, session.Start)
+	// user.Register(userService, ctx, session.Start)
+	user.Register(userService, ctx)
 	user.Handle(new(controllers.UserController))
 
 	// 注册 product 控制器
@@ -79,8 +79,11 @@ func main() {
 	productParty.Use(middleware.AuthUserLogin)
 	product := mvc.New(productParty)
 	// 注册service和session
-	product.Register(productService, orderService, ctx, session.Start)
-
+	// product.Register(productService, orderService, ctx, session.Start)
+	product.Register(productService, orderService, ctx)
+	// 消息队列
+	// mq := rabbitmq.NewRabbitMQSimple("seckillProduct")
+	// product.Register(productService, orderService,mq)
 	product.Handle(new(controllers.ProductController))
 
 	app.Run(
