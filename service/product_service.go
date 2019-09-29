@@ -13,6 +13,7 @@ type IProductService interface {
 	// 返回插入商品的id
 	InsertProduct(product *model.Product) (int64, error)
 	UpdateProduct(product *model.Product) error
+	// 让rabbitmq消费端调用 扣除商品数量
 	SubNumberOne(productID int64) error
 }
 
@@ -44,6 +45,7 @@ func (p *ProductService) UpdateProduct(product *model.Product) error {
 	return p.productDao.Update(product)
 }
 
+// 让rabbitmq消费端调用 扣除商品数量
 func (p *ProductService) SubNumberOne(productID int64) error {
 	return p.productDao.SubProductNum(productID)
 }

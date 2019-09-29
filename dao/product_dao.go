@@ -19,6 +19,7 @@ type IProduct interface {
 	// 入参商品id
 	SelectById(int64) (*model.Product, error)
 	SelectAll() ([]*model.Product, error)
+	// 扣除商品数量
 	SubProductNum(productID int64) error
 }
 
@@ -148,6 +149,7 @@ func (p *ProductManager) SelectAll() (productList []*model.Product, err error) {
 	return
 }
 
+// 让rabbitmq消费端调用 扣除商品数量
 func (p *ProductManager) SubProductNum(productID int64) error {
 	if err := p.Conn(); err != nil {
 		return err
@@ -161,5 +163,5 @@ func (p *ProductManager) SubProductNum(productID int64) error {
 
 	productId := strconv.FormatInt(productID, 10)
 	_, err = stmt.Exec(productId)
-	return nil
+	return err
 }

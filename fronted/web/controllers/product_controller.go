@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/kataras/iris/sessions"
 
 	"github.com/solozyx/seckill/conf"
+	"github.com/solozyx/seckill/datasource"
 	"github.com/solozyx/seckill/model"
 	"github.com/solozyx/seckill/service"
 )
@@ -21,6 +23,7 @@ type ProductController struct {
 	Session        *sessions.Session
 	ProductService service.IProductService
 	OrderService   service.IOrderService
+	RabbitMQ       *datasource.RabbitMQ
 }
 
 var (
@@ -107,8 +110,33 @@ func exist(filePath string) bool {
 }
 
 // 基于MySQL的秒杀抢购流程
-func (p *ProductController) GetOrder() mvc.View {
-	// func (p *ProductController) GetOrder() []byte {
+func (p *ProductController) GetOrder() []byte {
+	productString := p.Ctx.URLParam("productID")
+	userString := p.Ctx.GetCookie(conf.CookieName)
+	productID, err := strconv.ParseInt(productString, 10, 64)
+	if err != nil {
+		p.Ctx.Application().Logger().Debug(err)
+	}
+	userID, err := strconv.ParseInt(userString, 10, 64)
+	if err != nil {
+		p.Ctx.Application().Logger().Debug(err)
+	}
+
+	// 把消息投递到 rabbitmq
+	message := model.NewMessage(userID, productID)
+	byteMessage, err := json.Marshal(message)
+	if err != nil {
+		p.Ctx.Application().Logger().Debug(err)
+	}
+	err = p.RabbitMQ.PublishSimple(string(byteMessage))
+	if err != nil {
+		p.Ctx.Application().Logger().Debug(err)
+	}
+	return []byte("true")
+}
+
+// 基于MySQL的秒杀抢购流程
+func (p *ProductController) deprecatedGetOrder() mvc.View {
 	productString := p.Ctx.URLParam("productID")
 	userString := p.Ctx.GetCookie(conf.CookieName)
 	productID, err := strconv.ParseInt(productString, 10, 64)

@@ -7,6 +7,7 @@ import (
 	"github.com/kataras/iris/mvc"
 	// "github.com/kataras/iris/sessions"
 
+	"github.com/solozyx/seckill/conf"
 	"github.com/solozyx/seckill/dao"
 	"github.com/solozyx/seckill/datasource"
 	"github.com/solozyx/seckill/fronted/middleware"
@@ -82,8 +83,8 @@ func main() {
 	// product.Register(productService, orderService, ctx, session.Start)
 	product.Register(productService, orderService, ctx)
 	// 消息队列
-	// mq := rabbitmq.NewRabbitMQSimple("seckillProduct")
-	// product.Register(productService, orderService,mq)
+	rabbitmq := datasource.NewRabbitMQSimple(conf.SeckillQueueName)
+	product.Register(ctx, productService, orderService, rabbitmq)
 	product.Handle(new(controllers.ProductController))
 
 	app.Run(

@@ -14,6 +14,7 @@ type IOrderService interface {
 	InsertOrder(*model.Order) (int64, error)
 	GetAllOrder() ([]*model.Order, error)
 	GetAllOrderInfo() (map[int]map[string]string, error)
+	// 让rabbitmq消费端调用 创建订单 返回订单id
 	InsertOrderByMessage(*model.Message) (int64, error)
 }
 
@@ -49,7 +50,7 @@ func (o *OrderService) GetAllOrderInfo() (map[int]map[string]string, error) {
 	return o.orderDao.SelectAllWithInfo()
 }
 
-// 根据消息创建订单
+// 让rabbitmq消费端调用 创建订单 返回订单id
 func (o *OrderService) InsertOrderByMessage(message *model.Message) (orderID int64, err error) {
 	order := &model.Order{
 		UserId:      message.UserID,
