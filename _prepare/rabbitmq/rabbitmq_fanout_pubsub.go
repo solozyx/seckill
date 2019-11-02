@@ -52,7 +52,7 @@ func (r *rabbitmq) PublishPub(message string) {
 }
 
 // 订阅模式 消费消息
-func (r *rabbitmq) RecieveSub() {
+func (r *rabbitmq) ConsumeSub() {
 	// 1.申请声明交换机
 	err := r.c.ExchangeDeclare(
 		r.Exchange,

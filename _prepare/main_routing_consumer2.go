@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	mqPubSub := rabbitmq.NewRabbitMQPubSub("exchange_pubsub")
-	mqPubSub.ConsumeSub()
+	c2 := rabbitmq.NewRabbitMQRouting("exchange_routing", "routing2")
+	c2.ConsumeRouting()
 }

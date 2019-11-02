@@ -6,5 +6,5 @@ import (
 
 func main() {
 	mqPubSub := rabbitmq.NewRabbitMQPubSub("exchange_pubsub")
-	mqPubSub.RecieveSub()
+	mqPubSub.ConsumeSub()
 }
