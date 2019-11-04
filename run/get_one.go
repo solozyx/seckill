@@ -4,9 +4,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
+
+	"github.com/solozyx/seckill/conf"
 )
 
 var (
@@ -21,7 +24,7 @@ var (
 
 func main() {
 	http.HandleFunc("/getone", getProduct)
-	err := http.ListenAndServe(":8084", nil)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", conf.ServiceGetOnePort), nil)
 	if err != nil {
 		log.Fatal("Err:", err)
 	}
@@ -45,7 +48,7 @@ func getOneProduct() bool {
 	defer mutex.Unlock()
 
 	count += 1
-	// 判断数据是否超限
+	// 判断数据是否超限 每100个抢购成功1次
 	if count%100 == 0 {
 		if sum < productNum {
 			sum += 1
