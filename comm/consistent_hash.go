@@ -9,33 +9,33 @@ import (
 )
 
 // 一致性哈希取值范围 [0,2^32-1]
-type uints []uint32
+type uint32slice []uint32
 
-func (x uints) Len() int {
+func (x uint32slice) Len() int {
 	return len(x)
 }
 
 // 比对两个数大小
-func (x uints) Less(i, j int) bool {
+func (x uint32slice) Less(i, j int) bool {
 	return x[i] < x[j]
 }
 
 // 切片中两个值交换
-func (x uints) Swap(i, j int) {
+func (x uint32slice) Swap(i, j int) {
 	x[i], x[j] = x[j], x[i]
 }
 
 // 当hash环上没有数据时提示错误
-var errEmpty = errors.New("hash circle has no data error")
+var errEmpty = errors.New("error : hash circle has no data")
 
 // 保存一致性hash信息
 type Consistent struct {
 	// hash环 key为哈希值 值为节点信息
-	circleMap map[uint32]string
+	circleHashVirtualNodeMap map[uint32]string
 	// 已经排序的节点hash切片
-	sortedHashes uints
+	sortedHashes uint32slice
 	// 虚拟节点个数 用来增加hash的平衡性 避免数据倾斜问题
-	VirtualNode int
+	VirtualNodeCount int
 	// map 读写锁
 	sync.RWMutex
 }
@@ -44,9 +44,9 @@ type Consistent struct {
 func NewConsistent() *Consistent {
 	return &Consistent{
 		// 初始化变量
-		circleMap: make(map[uint32]string),
+		circleHashVirtualNodeMap: make(map[uint32]string),
 		// 设置虚拟节点个数
-		VirtualNode: 20,
+		VirtualNodeCount: 20,
 	}
 }
 
@@ -73,11 +73,11 @@ func (c *Consistent) hashKey(key string) uint32 {
 func (c *Consistent) updateSortedHashes() {
 	hashes := c.sortedHashes[:0]
 	// 判断切片容量 是否过大 如果过大则重置
-	if cap(c.sortedHashes)/(c.VirtualNode*4) > len(c.circleMap) {
+	if cap(c.sortedHashes)/(c.VirtualNodeCount*4) > len(c.circleHashVirtualNodeMap) {
 		hashes = nil
 	}
 	// 添加 hash
-	for k := range c.circleMap {
+	for k := range c.circleHashVirtualNodeMap {
 		hashes = append(hashes, k)
 	}
 	// 对所有节点hash值进行排序 方便之后进行二分查找
@@ -98,9 +98,9 @@ func (c *Consistent) Add(element string) {
 
 func (c *Consistent) add(element string) {
 	// 循环虚拟节点设置副本
-	for i := 0; i < c.VirtualNode; i++ {
+	for i := 0; i < c.VirtualNodeCount; i++ {
 		// 把虚拟节点映射到hash环中
-		c.circleMap[c.hashKey(c.generateKey(element, i))] = element
+		c.circleHashVirtualNodeMap[c.hashKey(c.generateKey(element, i))] = element
 	}
 	// 更新排序
 	c.updateSortedHashes()
@@ -114,8 +114,8 @@ func (c *Consistent) Remove(element string) {
 }
 
 func (c *Consistent) remove(element string) {
-	for i := 0; i < c.VirtualNode; i++ {
-		delete(c.circleMap, c.hashKey(c.generateKey(element, i)))
+	for i := 0; i < c.VirtualNodeCount; i++ {
+		delete(c.circleHashVirtualNodeMap, c.hashKey(c.generateKey(element, i)))
 	}
 	c.updateSortedHashes()
 }
@@ -128,14 +128,14 @@ func (c *Consistent) Get(element string) (string, error) {
 	// 解读锁
 	defer c.RUnlock()
 
-	if len(c.circleMap) == 0 {
+	if len(c.circleHashVirtualNodeMap) == 0 {
 		return "", errEmpty
 	}
 
 	// 计算hash值
 	key := c.hashKey(element)
 	i := c.search(key)
-	return c.circleMap[c.sortedHashes[i]], nil
+	return c.circleHashVirtualNodeMap[c.sortedHashes[i]], nil
 }
 
 // 顺时针查找最近的服务端节点
