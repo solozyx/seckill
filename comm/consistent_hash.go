@@ -31,7 +31,7 @@ var errEmpty = errors.New("error : hash circle has no data")
 // 保存一致性hash信息
 type Consistent struct {
 	// hash环 key为哈希值 值为节点信息
-	circleHashVirtualNodeMap map[uint32]string
+	circleHashNodeMap map[uint32]string
 	// 已经排序的节点hash切片
 	sortedHashes uint32slice
 	// 虚拟节点个数 用来增加hash的平衡性 避免数据倾斜问题
@@ -44,7 +44,7 @@ type Consistent struct {
 func NewConsistent() *Consistent {
 	return &Consistent{
 		// 初始化变量
-		circleHashVirtualNodeMap: make(map[uint32]string),
+		circleHashNodeMap: make(map[uint32]string),
 		// 设置虚拟节点个数
 		VirtualNodeCount: 20,
 	}
@@ -73,11 +73,11 @@ func (c *Consistent) hashKey(key string) uint32 {
 func (c *Consistent) updateSortedHashes() {
 	hashes := c.sortedHashes[:0]
 	// 判断切片容量 是否过大 如果过大则重置
-	if cap(c.sortedHashes)/(c.VirtualNodeCount*4) > len(c.circleHashVirtualNodeMap) {
+	if cap(c.sortedHashes)/(c.VirtualNodeCount*4) > len(c.circleHashNodeMap) {
 		hashes = nil
 	}
 	// 添加 hash
-	for k := range c.circleHashVirtualNodeMap {
+	for k := range c.circleHashNodeMap {
 		hashes = append(hashes, k)
 	}
 	// 对所有节点hash值进行排序 方便之后进行二分查找
@@ -100,7 +100,7 @@ func (c *Consistent) add(element string) {
 	// 循环虚拟节点设置副本
 	for i := 0; i < c.VirtualNodeCount; i++ {
 		// 把虚拟节点映射到hash环中
-		c.circleHashVirtualNodeMap[c.hashKey(c.generateKey(element, i))] = element
+		c.circleHashNodeMap[c.hashKey(c.generateKey(element, i))] = element
 	}
 	// 更新排序
 	c.updateSortedHashes()
@@ -115,7 +115,7 @@ func (c *Consistent) Remove(element string) {
 
 func (c *Consistent) remove(element string) {
 	for i := 0; i < c.VirtualNodeCount; i++ {
-		delete(c.circleHashVirtualNodeMap, c.hashKey(c.generateKey(element, i)))
+		delete(c.circleHashNodeMap, c.hashKey(c.generateKey(element, i)))
 	}
 	c.updateSortedHashes()
 }
@@ -128,14 +128,14 @@ func (c *Consistent) Get(element string) (string, error) {
 	// 解读锁
 	defer c.RUnlock()
 
-	if len(c.circleHashVirtualNodeMap) == 0 {
+	if len(c.circleHashNodeMap) == 0 {
 		return "", errEmpty
 	}
 
 	// 计算hash值
 	key := c.hashKey(element)
 	i := c.search(key)
-	return c.circleHashVirtualNodeMap[c.sortedHashes[i]], nil
+	return c.circleHashNodeMap[c.sortedHashes[i]], nil
 }
 
 // 顺时针查找最近的服务端节点
