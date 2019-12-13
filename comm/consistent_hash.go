@@ -25,9 +25,6 @@ func (x uint32slice) Swap(i, j int) {
 	x[i], x[j] = x[j], x[i]
 }
 
-// 当hash环上没有数据时提示错误
-var errEmpty = errors.New("error : hash circle has no data")
-
 // 保存一致性hash信息
 type Consistent struct {
 	// hash环 key为哈希值 值为节点信息
@@ -35,7 +32,7 @@ type Consistent struct {
 	// 已经排序的节点hash切片
 	sortedHashes uint32slice
 	// 虚拟节点个数 用来增加hash的平衡性 避免数据倾斜问题
-	VirtualNodeCount int
+	virtualNodeCount int
 	// map 读写锁
 	sync.RWMutex
 }
@@ -46,18 +43,18 @@ func NewConsistent() *Consistent {
 		// 初始化变量
 		circleHashNodeMap: make(map[uint32]string),
 		// 设置虚拟节点个数
-		VirtualNodeCount: 20,
+		virtualNodeCount: 20,
 	}
 }
 
 // 自动生成key
-func (c *Consistent) generateKey(element string, index int) string {
+func (c *Consistent) generateKey(element string, index int) (key string) {
 	// 副本 key 生成逻辑
 	return element + strconv.Itoa(index)
 }
 
 // 获取hash位置
-func (c *Consistent) hashKey(key string) uint32 {
+func (c *Consistent) hashKey(key string) (hash uint32) {
 	if len(key) < 64 {
 		// 声明一个字节数组长度为64
 		var scratch [64]byte
@@ -73,12 +70,13 @@ func (c *Consistent) hashKey(key string) uint32 {
 func (c *Consistent) updateSortedHashes() {
 	hashes := c.sortedHashes[:0]
 	// 判断切片容量 是否过大 如果过大则重置
-	if cap(c.sortedHashes)/(c.VirtualNodeCount*4) > len(c.circleHashNodeMap) {
+	if cap(c.sortedHashes)/(c.virtualNodeCount*4) > len(c.circleHashNodeMap) {
 		hashes = nil
 	}
 	// 添加 hash
-	for k := range c.circleHashNodeMap {
-		hashes = append(hashes, k)
+	// for hashKey := range c.circleHashNodeMap {
+	for hashKey, _ := range c.circleHashNodeMap {
+		hashes = append(hashes, hashKey)
 	}
 	// 对所有节点hash值进行排序 方便之后进行二分查找
 	sort.Sort(hashes)
@@ -98,7 +96,7 @@ func (c *Consistent) Add(element string) {
 
 func (c *Consistent) add(element string) {
 	// 循环虚拟节点设置副本
-	for i := 0; i < c.VirtualNodeCount; i++ {
+	for i := 0; i < c.virtualNodeCount; i++ {
 		// 把虚拟节点映射到hash环中
 		c.circleHashNodeMap[c.hashKey(c.generateKey(element, i))] = element
 	}
@@ -114,7 +112,7 @@ func (c *Consistent) Remove(element string) {
 }
 
 func (c *Consistent) remove(element string) {
-	for i := 0; i < c.VirtualNodeCount; i++ {
+	for i := 0; i < c.virtualNodeCount; i++ {
 		delete(c.circleHashNodeMap, c.hashKey(c.generateKey(element, i)))
 	}
 	c.updateSortedHashes()
@@ -129,7 +127,7 @@ func (c *Consistent) Get(element string) (string, error) {
 	defer c.RUnlock()
 
 	if len(c.circleHashNodeMap) == 0 {
-		return "", errEmpty
+		return "", errors.New("error : hash circle has no data")
 	}
 
 	// 计算hash值
